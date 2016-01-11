@@ -29,9 +29,17 @@ app.get("/", function(req, res) {
     return res.send(404);
   }
 
-  geo.placefinder({
-    q: req.query.q
-  }, function(err, rsp) {
+  // Current (v4.13.3) express js code instantiates the req object without
+  // the Object prototype, while the npm "bossgeo" library calls query.hasOwnProperty.
+  // Construct a normal query Object from req.query for use with the bossgeo placefinder method.
+  var query = {}
+  for (var propName in req.query) {
+    if (Object.prototype.hasOwnProperty.call(req.query, propName)) {
+      query[propName] = req.query[propName];
+    }
+  }
+
+  geo.placefinder(query, function(err, rsp) {
     if (err) {
       console.log('-----Error-----: ', rsp);
       console.warn(err);
@@ -44,20 +52,22 @@ app.get("/", function(req, res) {
       var radius = +x.radius;
       var zoom = -Math.round(Math.log((radius) / (RADIUS / Math.cos(+x.latitude * π / 180)) / Math.log(smallEdge)));
 
-      return {
-        name: [x.city, x.state, x.country].filter(function(x) { return !!x; }).join(", "),
-        latitude: +x.latitude,
-        longitude: +x.longitude,
-        state: x.statecode,
-        zoom: zoom
-      };
+      x.name = [x.city, x.state, x.country].filter(function(x) { return !!x; }).join(", "),
+      x.latitude = +x.latitude,
+      x.longitude = +x.longitude,
+      x.state = x.statecode,
+      x.zoom = zoom
+
+      return x;
     });
 
     res.jsonp(results);
   });
 });
-app.get( "/crossdomain.xml", onCrossDomainHandler )
-function onCrossDomainHandler( req, res ) {
+
+app.get("/crossdomain.xml", onCrossDomainHandler)
+
+function onCrossDomainHandler(req, res) {
   var xml = '<?xml version="1.0"?>\n<!DOCTYPE cross-domain-policy SYSTEM' +
             ' "http://www.macromedia.com/xml/dtds/cross-domain-policy.dtd">\n<cross-domain-policy>\n';
       xml += '<allow-access-from domain="*" to-ports="*"/>\n';
